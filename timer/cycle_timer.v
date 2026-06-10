@@ -1,25 +1,25 @@
 `timescale 1ns / 1ps
 
-module timer #(
+module cycle_timer #(
     //================================================================
     // 可选参数
     //================================================================
 
     // 定时时间位宽，单位为 bit
-    parameter integer TIME_WIDTH    = 32,
+    parameter [7:0]  TIME_WIDTH    = 32,
     // 系统时钟频率，单位为 Hz
-    parameter integer CLK_FREQ      = 50_000_000,
+    parameter [31:0] CLK_FREQ      = 50_000_000,
 
     //================================================================
     // 自动计算参数
     //================================================================
 
     // 最大定时时间
-    parameter integer MAX_TIME_US   = (1 << TIME_WIDTH) - 1,
+    parameter [63:0] MAX_TIME_US   = (1 << TIME_WIDTH) - 1,
     // 最大计数值
-    parameter integer MAX_CNT_VALUE = CLK_FREQ * MAX_TIME_US / 1_000_000,
+    parameter [63:0] MAX_CNT_VALUE = CLK_FREQ * MAX_TIME_US / 1_000_000,
     // 定时计数器宽度
-    parameter integer CNT_WIDTH     = clog2(MAX_CNT_VALUE + 1)
+    parameter [7:0]  CNT_WIDTH     = clog2(MAX_CNT_VALUE + 1)
 ) (
     //================================================================
     // 模块输入
@@ -66,40 +66,47 @@ module timer #(
     //================================================================
 
     // 目标计数值
-    wire [CNT_WIDTH - 1:0] cnt_target;
+    reg  [CNT_WIDTH - 1:0]  cnt_target;
     // 当前计数值
-    reg  [CNT_WIDTH - 1:0] cnt_current;
+    reg  [CNT_WIDTH - 1:0]  cnt_current;
+    // 上一次锁存的定时时间
+    reg  [TIME_WIDTH - 1:0] time_us_latched;
 
     // 复位释放后的首次计数标志
     reg  first_cycle_after_reset;
 
     //================================================================
-    // 组合逻辑
-    //================================================================
-
-    // 计算目标计数值
-    assign cnt_target = CLK_FREQ * time_us / 1_000_000;
-
-    //================================================================
     // 时序逻辑
     //================================================================
 
-    // 计数器计数
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             // 复位时
             timeout <= 1'b0;
+            cnt_target  <= {CNT_WIDTH{1'b0}};
             cnt_current <= {CNT_WIDTH{1'b0}};
+            time_us_latched <= {TIME_WIDTH{1'b0}};
             first_cycle_after_reset <= 1'b1;
-        end else if (time_us == {CNT_WIDTH{1'b0}}) begin
+        end else if (time_us == {TIME_WIDTH{1'b0}}) begin
             // 定时时间设置为 0 时
             timeout <= 1'b1;
+            cnt_target  <= {CNT_WIDTH{1'b0}};
             cnt_current <= {CNT_WIDTH{1'b0}};
+            time_us_latched <= time_us;
             first_cycle_after_reset <= 1'b0;
         end else if (first_cycle_after_reset) begin
             // 复位释放后的首次计数时
             timeout <= 1'b0;
+            cnt_target  <= CLK_FREQ * time_us / 1_000_000;
             cnt_current <= {CNT_WIDTH{1'b0}};
+            time_us_latched <= time_us;
+            first_cycle_after_reset <= 1'b0;
+        end else if (time_us != time_us_latched) begin
+            // 定时时间变化时，从当前时钟沿重新开始计时
+            timeout <= 1'b0;
+            cnt_target  <= CLK_FREQ * time_us / 1_000_000;
+            cnt_current <= {CNT_WIDTH{1'b0}};
+            time_us_latched <= time_us;
             first_cycle_after_reset <= 1'b0;
         end else if (cnt_current == cnt_target - 1'b1) begin
             // 计数器计数到目标计数值时
