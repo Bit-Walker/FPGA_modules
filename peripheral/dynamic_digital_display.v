@@ -160,36 +160,14 @@ module dynamic_digital_display #(
         end
     endgenerate
 
-    //================================================================
-    // 静态数码管显示
-    //================================================================
-
-    // 当前位选对应的 BCD 数码
-    wire [3:0] current_bcd;
-    assign current_bcd = (overflow && (dig_sel == {DIG_SEL_WIDTH{1'b0}})) ? 
-                        4'hE : display_bcd[dig_sel * 4 +: 4];
-
-    // 段选输出
-    wire [6:0] display_seg_out;
-    // 位使能输出
-    wire [DIGITS_NUM - 1:0] display_dig_out;
-
-    static_digital_display #(
-        .DIGITS_NUM ( DIGITS_NUM )
-    ) u_display (
-        .data_in ( current_bcd     ),
-        .dig_sel ( dig_sel         ),
-        .seg_out ( display_seg_out ),
-        .dig_out ( display_dig_out )
-    );
 
     //================================================================
     // 隐藏高位零
     //================================================================
 
-    // 每位的前导零标志
+    // 每位的前导零标志，高电平有效
     reg  [DIGITS_NUM - 1:0] leading_zero;
-    // 每位的抑制显示标志
+    // 每位的抑制显示标志，高电平有效
     wire [DIGITS_NUM - 1:0] suppress_digit;
 
     // 循环变量
@@ -215,13 +193,32 @@ module dynamic_digital_display #(
     endgenerate
 
     //================================================================
-    // 最终输出
+    // 静态数码管显示
     //================================================================
 
-    // 段选输出，抑制显示标志有效时输出空白显示
-    assign seg_out = (suppress_digit[dig_sel]) ? 7'b0000000 : display_seg_out;
+    // 当前位选对应的 BCD 数码
+    wire [4:0] current_bcd;
+    assign current_bcd = overflow ?
+                            dig_sel == {DIG_SEL_WIDTH{1'b0}} ? 
+                                (5'hE) :
+                                {1'b1, 4'hF} :
+                            suppress_digit[dig_sel] ?
+                                {1'b1, 4'hF} :
+                                {1'b0, display_bcd[dig_sel * 4 +: 4]};
 
+    // 段选输出
+    wire [6:0] display_seg_out;
     // 位使能输出
-    assign dig_out = display_dig_out;
+    wire [DIGITS_NUM - 1:0] display_dig_out;
+
+    static_digital_display #(
+        .DIGITS_NUM ( DIGITS_NUM )
+    ) u_display (
+        .data_in ( current_bcd ),
+        .dig_sel ( dig_sel     ),
+        .seg_out ( seg_out     ),
+        .dig_out ( dig_out     )
+    );
+
 
 endmodule

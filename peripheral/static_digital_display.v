@@ -22,8 +22,8 @@ module static_digital_display #(
     // 模块输入
     //================================================================
 
-    // 段选信号
-    input  wire [3:0] data_in,
+    // 段选信号, 最高位为高有效空白标志位
+    input  wire [4:0] data_in,
     // 位选信号，当 DIGITS_NUM = 1 时无效
     input  wire [SEL_WIDTH-1:0] dig_sel,
 
@@ -61,22 +61,22 @@ module static_digital_display #(
     // 段选信号
     always @(*) begin
         case (data_in)
-            4'd0:    seg_out = 7'b0111111;  // 显示 "0"
-            4'd1:    seg_out = 7'b0000110;  // 显示 "1"
-            4'd2:    seg_out = 7'b1011011;  // 显示 "2"
-            4'd3:    seg_out = 7'b1001111;  // 显示 "3"
-            4'd4:    seg_out = 7'b1100110;  // 显示 "4"
-            4'd5:    seg_out = 7'b1101101;  // 显示 "5"
-            4'd6:    seg_out = 7'b1111101;  // 显示 "6"
-            4'd7:    seg_out = 7'b0000111;  // 显示 "7"
-            4'd8:    seg_out = 7'b1111111;  // 显示 "8"
-            4'd9:    seg_out = 7'b1101111;  // 显示 "9"
-            4'd10:   seg_out = 7'b1110111;  // 显示 "A"
-            4'd11:   seg_out = 7'b1111100;  // 显示 "b"
-            4'd12:   seg_out = 7'b0111001;  // 显示 "C"
-            4'd13:   seg_out = 7'b1011110;  // 显示 "d"
-            4'd14:   seg_out = 7'b1111001;  // 显示 "E"
-            4'd15:   seg_out = 7'b1110001;  // 显示 "F"
+            5'd0:    seg_out = 7'b0111111;  // 显示 "0"
+            5'd1:    seg_out = 7'b0000110;  // 显示 "1"
+            5'd2:    seg_out = 7'b1011011;  // 显示 "2"
+            5'd3:    seg_out = 7'b1001111;  // 显示 "3"
+            5'd4:    seg_out = 7'b1100110;  // 显示 "4"
+            5'd5:    seg_out = 7'b1101101;  // 显示 "5"
+            5'd6:    seg_out = 7'b1111101;  // 显示 "6"
+            5'd7:    seg_out = 7'b0000111;  // 显示 "7"
+            5'd8:    seg_out = 7'b1111111;  // 显示 "8"
+            5'd9:    seg_out = 7'b1101111;  // 显示 "9"
+            5'd10:   seg_out = 7'b1110111;  // 显示 "A"
+            5'd11:   seg_out = 7'b1111100;  // 显示 "b"
+            5'd12:   seg_out = 7'b0111001;  // 显示 "C"
+            5'd13:   seg_out = 7'b1011110;  // 显示 "d"
+            5'd14:   seg_out = 7'b1111001;  // 显示 "E"
+            5'd15:   seg_out = 7'b1110001;  // 显示 "F"
             default: seg_out = 7'b0000000;  // 空白显示
         endcase
     end
