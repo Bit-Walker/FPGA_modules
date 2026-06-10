@@ -24,7 +24,7 @@ module static_digital_display #(
 
     // 段选信号
     input  wire [3:0] data_in,
-    // 位选信号
+    // 位选信号，当 DIGITS_NUM = 1 时无效
     input  wire [SEL_WIDTH-1:0] dig_sel,
 
     //================================================================
@@ -71,6 +71,12 @@ module static_digital_display #(
             4'd7:    seg_out = 7'b0000111;  // 显示 "7"
             4'd8:    seg_out = 7'b1111111;  // 显示 "8"
             4'd9:    seg_out = 7'b1101111;  // 显示 "9"
+            4'd10:   seg_out = 7'b1110111;  // 显示 "A"
+            4'd11:   seg_out = 7'b1111100;  // 显示 "b"
+            4'd12:   seg_out = 7'b0111001;  // 显示 "C"
+            4'd13:   seg_out = 7'b1011110;  // 显示 "d"
+            4'd14:   seg_out = 7'b1111001;  // 显示 "E"
+            4'd15:   seg_out = 7'b1110001;  // 显示 "F"
             default: seg_out = 7'b0000000;  // 空白显示
         endcase
     end
