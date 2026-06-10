@@ -40,10 +40,10 @@ module counter_up #(
             // 复位时
             cnt_value <= CNT_MIN;
         end else if (cnt_value >= CNT_MAX) begin
-            // 计数到上限值时回到下限值
+            // 计数到上限值时
             cnt_value <= CNT_MIN;
         end else if (cnt_value < CNT_MIN) begin
-            // 当前计数值小于下限值时拉回下限值
+            // 当前计数值小于下限值时
             cnt_value <= CNT_MIN;
         end else begin
             // 计数器正常计数时
