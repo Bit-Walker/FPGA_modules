@@ -1,25 +1,21 @@
 `timescale 1ns / 1ps
 
-module cycle_timer #(
+module cycle_timer_us #(
     //================================================================
     // 可选参数
     //================================================================
 
     // 定时时间位宽，范围 1 ~ 64，单位为 bit
     parameter [7:0]  TIME_WIDTH = 32,
-    // 系统时钟频率，单位为 Hz
+    // 系统时钟频率，频率大于 1 MHz，单位为 Hz
     parameter [31:0] CLK_FREQ   = 50_000_000,
 
     //================================================================
     // 自动计算参数
     //================================================================
 
-    // 最大定时时间
-    parameter [127:0] MAX_TIME_US   = ({128{1'b1}} >> (128 - TIME_WIDTH)),
-    // 最大计数值
-    parameter [127:0] MAX_CNT_VALUE = ((CLK_FREQ * MAX_TIME_US) + 999_999) / 1_000_000,
-    // 定时计数器宽度
-    parameter [7:0]   CNT_WIDTH     = clog2(MAX_CNT_VALUE + 1)
+    // 微秒累加器宽度
+    parameter [7:0]   US_ACCUM_WIDTH = clog2(CLK_FREQ + 999_999)
 ) (
     //================================================================
     // 模块输入
@@ -43,7 +39,9 @@ module cycle_timer #(
     // 如果定时时间设置为零，则保持输出高电平
 
     // 定时时间到时输出一个时钟周期的高电平
-    output reg  timeout
+    output reg  timeout,
+    // 当前已计时的微秒数
+    output reg  [TIME_WIDTH - 1:0] elapsed_us
 );
 
     //================================================================
@@ -62,59 +60,58 @@ module cycle_timer #(
         end
     endfunction
 
-    // 计算目标计数值
-    function [CNT_WIDTH - 1:0] calc_cnt_target;
-        input [TIME_WIDTH - 1:0] time_value_us;
-        reg   [127:0] cnt_value;
-        begin            
-            cnt_value = ((CLK_FREQ * time_value_us) + 999_999) / 1_000_000;
-            calc_cnt_target = cnt_value[CNT_WIDTH - 1:0];
-        end
-    endfunction
-
     //================================================================
-    // 寄存器声明
+    // 微秒计时器
     //================================================================
 
-    // 目标计数值
-    reg [CNT_WIDTH - 1:0] cnt_target;
-    // 当前计数值
-    reg [CNT_WIDTH - 1:0] cnt_current;
+    // 微秒单位换算系数
+    localparam US_ACCUM_INC = 1_000_000;
+
+    // 微秒相位累加器
+    reg [US_ACCUM_WIDTH - 1:0] us_accum;
+
+    // 微秒节拍标志
+    wire   us_tick;
+    assign us_tick = (us_accum + US_ACCUM_INC) >= CLK_FREQ;
+
     // 上一次锁存的定时时间
     reg [TIME_WIDTH - 1:0] time_us_latched;
-
-    //================================================================
-    // 时序逻辑
-    //================================================================
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             // 复位时
-            timeout <= 1'b0;
-            cnt_target  <= {CNT_WIDTH{1'b0}};
-            cnt_current <= {CNT_WIDTH{1'b0}};
+            timeout         <= 1'b0;
+            elapsed_us      <= {TIME_WIDTH{1'b0}};
+            us_accum        <= {US_ACCUM_WIDTH{1'b0}};
             time_us_latched <= {TIME_WIDTH{1'b0}};
         end else if (time_us == {TIME_WIDTH{1'b0}}) begin
-            // 定时时间设置为 0 时
-            timeout <= 1'b1;
-            cnt_target  <= {CNT_WIDTH{1'b0}};
-            cnt_current <= {CNT_WIDTH{1'b0}};
+            // 定时时间设置为零时
+            timeout         <= 1'b1;
+            elapsed_us      <= {TIME_WIDTH{1'b0}};
+            us_accum        <= {US_ACCUM_WIDTH{1'b0}};
             time_us_latched <= time_us;
         end else if (time_us != time_us_latched) begin
-            // 定时时间变化时，从当前时钟沿重新开始计时
-            timeout <= 1'b0;
-            cnt_target  <= calc_cnt_target(time_us);
-            cnt_current <= {CNT_WIDTH{1'b0}};
+            // 定时时间变化时
+            timeout         <= 1'b0;
+            elapsed_us      <= {TIME_WIDTH{1'b0}};
+            us_accum        <= {US_ACCUM_WIDTH{1'b0}};
             time_us_latched <= time_us;
-        end else if (cnt_current == cnt_target - 1'b1) begin
-            // 计数器计数到目标计数值时
-            timeout <= 1'b1;
-            cnt_current <= {CNT_WIDTH{1'b0}};
-
+        end else if (us_tick) begin
+            // 处在微秒节拍时
+            us_accum <= us_accum + US_ACCUM_INC - CLK_FREQ;
+            if (elapsed_us == time_us_latched - 1'b1) begin
+                // 计时到达目标时间
+                timeout    <= 1'b1;
+                elapsed_us <= {TIME_WIDTH{1'b0}};
+            end else begin
+                // 计时未达目标时间
+                timeout    <= 1'b0;
+                elapsed_us <= elapsed_us + 1'b1;
+            end
         end else begin
-            // 计数器正常计数时
-            timeout <= 1'b0;
-            cnt_current <= cnt_current + 1'b1;
+            // 未达微秒节拍时
+            timeout  <= 1'b0;
+            us_accum <= us_accum + US_ACCUM_INC;
         end
     end
 
