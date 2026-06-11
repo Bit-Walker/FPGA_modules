@@ -13,7 +13,7 @@ module dynamic_digital_display #(
     // 系统时钟频率，单位为 Hz
     parameter [31:0] CLK_FREQ   = 50_000_000,
     // 位扫描频率，单位为 Hz
-    parameter [31:0] SCAN_FREQ  = 5000,
+    parameter [31:0] SCAN_FREQ  = 5_000,
 
     //================================================================
     // 自动计算参数
@@ -81,41 +81,22 @@ module dynamic_digital_display #(
     endfunction
 
     //================================================================
-    // 扫描时钟生成
-    //================================================================
-
-    // 扫描频率源目标频率
-    wire [FREQ_WIDTH_SCAN - 1:0] scan_target_freq;
-    assign scan_target_freq = SCAN_FREQ[FREQ_WIDTH_SCAN - 1:0];
-
-    // 扫描频率源输出
-    wire scan_freq_out;
-
-    frequency_source #(
-        .FREQ_WIDTH  ( FREQ_WIDTH_SCAN ),
-        .CLK_FREQ    ( CLK_FREQ        )
-    ) u_scan_clk (
-        .clk         ( clk ),
-        .rst         ( rst ),
-        .target_freq ( scan_target_freq ),
-        .freq_out    ( scan_freq_out    )
-    );
-
-    //================================================================
     // 位选计数器
     //================================================================
 
     // 当前位选序号
     wire [DIG_SEL_WIDTH - 1:0] dig_sel;
 
-    counter_up #(
-        .CNT_WIDTH ( DIG_SEL_WIDTH         ),
-        .CNT_MIN   ( {DIG_SEL_WIDTH{1'b0}} ),
-        .CNT_MAX   ( DIGITS_NUM - 1'b1     )
+    counter_var_freq #(
+        .CNT_WIDTH   ( DIG_SEL_WIDTH     ),
+        .FREQ_WIDTH  ( FREQ_WIDTH_SCAN   ),
+        .CLK_FREQ    ( CLK_FREQ          ),
+        .CNT_MAX     ( DIGITS_NUM - 1'b1 )
     ) u_dig_counter (
-        .clk       ( scan_freq_out ),
-        .rst       ( rst           ),
-        .cnt_value ( dig_sel       )
+        .clk         ( clk       ),
+        .rst         ( rst       ),
+        .target_freq ( SCAN_FREQ ),
+        .cnt_value   ( dig_sel   )
     );
 
     //================================================================

@@ -12,6 +12,9 @@ module counter_var_freq #(
     // 系统时钟频率，单位为 Hz
     parameter [31:0] CLK_FREQ   = 50_000_000,
 
+    // 计数方向：0 = 递增，1 = 递减
+    parameter COUNT_MODE = 1'b0,
+
     // 计数下限
     parameter [CNT_WIDTH - 1:0] CNT_MIN = {CNT_WIDTH{1'b0}},
     // 计数上限
@@ -77,7 +80,8 @@ module counter_var_freq #(
 
     // 计数节拍标志
     wire   cnt_tick;
-    assign cnt_tick = (target_freq_latched >= CLK_FREQ) || ((freq_accum + target_freq_latched) >= CLK_FREQ);
+    assign cnt_tick = (target_freq_latched >= CLK_FREQ) || 
+                      ((freq_accum + target_freq_latched) >= CLK_FREQ);
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -110,18 +114,37 @@ module counter_var_freq #(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             // 复位时
-            cnt_value <= CNT_MIN;
+            cnt_value <= (COUNT_MODE == 1'b0) ? CNT_MIN : CNT_MAX;
         end else if (cnt_tick) begin
             // 计数节拍有效时
-            if (cnt_value >= CNT_MAX) begin
-                // 计数到上限值时
-                cnt_value <= CNT_MIN;
-            end else if (cnt_value < CNT_MIN) begin
-                // 当前计数值小于下限值时
-                cnt_value <= CNT_MIN;
+            if (COUNT_MODE == 1'b0) begin
+                //====================================================
+                // 递增模式
+                //====================================================
+                if (cnt_value >= CNT_MAX) begin
+                    // 计数到上限值时
+                    cnt_value <= CNT_MIN;
+                end else if (cnt_value < CNT_MIN) begin
+                    // 当前计数值小于下限值时
+                    cnt_value <= CNT_MIN;
+                end else begin
+                    // 正常递增计数
+                    cnt_value <= cnt_value + 1'b1;
+                end
             end else begin
-                // 正常计数
-                cnt_value <= cnt_value + 1'b1;
+                //====================================================
+                // 递减模式
+                //====================================================
+                if (cnt_value <= CNT_MIN) begin
+                    // 计数到下限值时
+                    cnt_value <= CNT_MAX;
+                end else if (cnt_value > CNT_MAX) begin
+                    // 当前计数值大于上限值时
+                    cnt_value <= CNT_MAX;
+                end else begin
+                    // 正常递减计数
+                    cnt_value <= cnt_value - 1'b1;
+                end
             end
         end
     end
